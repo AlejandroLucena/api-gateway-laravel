@@ -1,0 +1,118 @@
+version: '3'
+
+services:
+
+  webserver:
+    container_name: webserver
+    image: nginx:alpine
+    restart: unless-stopped
+    tty: true
+    ports:
+      - 80:80
+      - 443:443
+      - 8000:8000
+      - 8001:8001
+      - 8002:8002
+      - 9000:9000
+    volumes:
+      - ./apps/blog/:/var/www/blog
+      - ./apps/ms_auth/:/var/www/ms_auth
+      - ./apps/ms_posts/:/var/www/ms_posts
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites/:/etc/nginx/conf.d/
+      - ./docker/nginx/ssl/:/etc/ssl/
+    networks:
+      - app-network
+
+
+  blog:
+    container_name: blog
+    build:
+      context: apps/blog
+      dockerfile: Dockerfile
+    image: digitalocean.com/php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: blog
+      SERVICE_TAGS: dev
+    working_dir: /var/www/blog
+    volumes:
+      - ./apps/blog/:/var/www/blog
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  ms_auth:
+    container_name: ms_auth
+    build:
+      context: apps/ms_auth
+      dockerfile: Dockerfile
+    image: digitalocean.com/php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: ms_auth
+      SERVICE_TAGS: dev
+    working_dir: /var/www/ms_auth
+    volumes:
+      - ./apps/ms_auth/:/var/www/ms_auth
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  ms_posts:
+    container_name: ms_posts
+    build:
+      context: apps/ms_posts
+      dockerfile: Dockerfile
+    image: digitalocean.com/php
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: ms_posts
+      SERVICE_TAGS: dev
+    working_dir: /var/www/ms_posts
+    volumes:
+      - ./apps/ms_posts/:/var/www/ms_posts
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - app-network
+
+  db:
+    container_name: db
+    image: mysql:latest
+    restart: unless-stopped
+    tty: true
+    ports:
+      - '3306:3306'
+    volumes:
+      - ./docker/mysql/data/dbdata:/docker-entrypoint-initdb.d
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db
+      SERVICE_NAME: mysql
+      SERVICE_TAGS: dev
+    networks:
+      - app-network
+
+  redis:
+    container_name: redis
+    image: 'redis:alpine'
+    command: redis-server --requirepass sOmE_sEcUrE_pAsS
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./docker/redis/redis-data:/var/lib/redis
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_REPLICATION_MODE=master
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
